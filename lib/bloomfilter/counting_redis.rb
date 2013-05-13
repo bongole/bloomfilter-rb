@@ -46,6 +46,29 @@ module BloomFilter
       @db.flushdb
     end
 
+    # return true if insertion is success.
+    # retrun false if #include? is true.
+    def insert_if_not_included(key)
+        indexes = indexes_for(key)
+        need_retry = false
+        result = false
+        begin
+            @db.watch indexes do
+                if self.include?(key)
+                    need_retry = false
+                    result = false
+                else
+                    need_retry = @db.multi do
+                        self.insert(key)
+                    end
+                    result = true unless need_retry.nil?
+                end
+            end
+        end while need_retry.nil?
+
+        result
+    end
+
     private
 
       # compute index offsets for provided key
